@@ -18,8 +18,6 @@ func main() {
 		repl.Start(os.Stdin, os.Stdout)
 	} else {
 
-		if filepath.
-
 		file, err := os.Open(fmt.Sprintf("./%s", os.Args[1]))
 		if err != nil {
 			fmt.Print("Error: ", err.Error())
