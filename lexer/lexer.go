@@ -31,7 +31,7 @@ func (l *Lexer) ReadChar() {
 				l.ReadChar()
 				return
 			}
-			l.Input = l.Input + l.scanner.Text()
+			l.Input = l.Input + " " + l.scanner.Text()
 			l.char = l.Input[l.nextPosition]
 		}
 
@@ -87,6 +87,8 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.LSQBRACKET, l.char)
 	case ']':
 		tok = newToken(token.RSQBRACKET, l.char)
+	case '.':
+		tok = newToken(token.DOT, l.char)
 	case ',':
 		tok = newToken(token.COMMA, l.char)
 	case '+':

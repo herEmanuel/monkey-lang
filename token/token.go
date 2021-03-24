@@ -26,6 +26,7 @@ const (
 	DIVIDE   = "/"
 	MULTIPLY = "*"
 
+	DOT       = "."
 	COMMA     = ","
 	SEMICOLON = ";"
 
@@ -37,7 +38,9 @@ const (
 	RSQBRACKET = "]"
 
 	FUNCTION = "FUNCTION"
+	USE      = "USE"
 	LET      = "LET"
+	WHILE    = "WHILE"
 	TRUE     = "TRUE"
 	FALSE    = "FALSE"
 	IF       = "IF"
@@ -47,7 +50,9 @@ const (
 
 var keywords = map[string]string{
 	"fn":     FUNCTION,
+	"use":    USE,
 	"let":    LET,
+	"while":  WHILE,
 	"true":   TRUE,
 	"false":  FALSE,
 	"if":     IF,

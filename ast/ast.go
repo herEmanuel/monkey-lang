@@ -110,6 +110,28 @@ func (rs *ReturnStatement) TokenLiteral() string {
 	return rs.Token.Literal
 }
 
+type WhileStatement struct {
+	Token     token.Token
+	Condition Expression
+	Block     BlockStatement
+}
+
+func (ws *WhileStatement) statementNode() {}
+func (ws *WhileStatement) TokenLiteral() string {
+	return ws.Token.Literal
+}
+func (ws *WhileStatement) String() string {
+	var result bytes.Buffer
+
+	result.WriteString("while (")
+	result.WriteString(ws.Condition.String())
+	result.WriteString(") {")
+	result.WriteString(ws.Block.String())
+	result.WriteString("}")
+
+	return result.String()
+}
+
 type IntegerLiteral struct {
 	Token token.Token
 	Value int64
@@ -262,6 +284,7 @@ func (ie *IfExpression) String() string {
 
 type FunctionLiteral struct {
 	Token      token.Token
+	Name       Identifier
 	Parameters []Identifier
 	Block      BlockStatement
 }
@@ -274,6 +297,9 @@ func (fl *FunctionLiteral) String() string {
 	var result bytes.Buffer
 
 	result.WriteString(fl.TokenLiteral())
+	if fl.Name.Value != "" {
+		result.WriteString(fl.Name.Value)
+	}
 	result.WriteString(" (")
 	for _, s := range fl.Parameters {
 		result.WriteString(s.String() + ", ")
@@ -289,6 +315,7 @@ type CallExpression struct {
 	Token     token.Token
 	Function  Expression
 	Arguments []Expression
+	Lib       string
 }
 
 func (ce *CallExpression) expressionNode() {}
@@ -348,6 +375,39 @@ func (rs *ReassignmentStatement) String() string {
 	result.WriteString(rs.Variable.String())
 	result.WriteString(" = ")
 	result.WriteString(rs.NewValue.String())
+
+	return result.String()
+}
+
+type UseStatement struct {
+	Token    token.Token
+	Filename string
+}
+
+func (us *UseStatement) statementNode() {}
+func (us *UseStatement) TokenLiteral() string {
+	return us.Token.Literal
+}
+func (us *UseStatement) String() string {
+	return "use " + us.Filename
+}
+
+type ExternalReferenceExpression struct {
+	Token    token.Token
+	Module   string
+	Referece Expression
+}
+
+func (ere *ExternalReferenceExpression) expressionNode() {}
+func (ere *ExternalReferenceExpression) TokenLiteral() string {
+	return ere.Token.Literal
+}
+func (ere *ExternalReferenceExpression) String() string {
+	var result bytes.Buffer
+
+	result.WriteString(ere.Module)
+	result.WriteString(".")
+	result.WriteString(ere.Referece.String())
 
 	return result.String()
 }

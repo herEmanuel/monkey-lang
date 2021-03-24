@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"monkey/ast"
 	"monkey/object"
+	"monkey/parser"
 )
 
 var (
@@ -11,6 +12,8 @@ var (
 	FALSE = &object.Boolean{Value: false}
 	NULL  = &object.Null{}
 )
+
+var libsEnv map[string]*object.Environment
 
 func newError(errorMsg string) *object.Error {
 	return &object.Error{Message: errorMsg}
@@ -26,6 +29,8 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return evalProgram(node.Statements, env)
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, env)
+	case *ast.UseStatement:
+		return evalUseStatement(node.Filename)
 	case *ast.IntegerLiteral:
 		return &object.Integer{Value: node.Value}
 	case *ast.Boolean:
@@ -209,9 +214,23 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return env.Set(node.Variable.Value, val)
 
 	case *ast.FunctionLiteral:
-		return &object.Function{Parameters: node.Parameters, Body: node.Block, Env: *env}
+		funcLiteral := &object.Function{Parameters: node.Parameters, Body: node.Block, Env: *env}
+
+		if node.Name.Value != "" {
+			env.Set(node.Name.Value, funcLiteral)
+		}
+
+		return funcLiteral
 	case *ast.CallExpression:
-		function := Eval(node.Function, env)
+
+		var function object.Object
+
+		if node.Lib != "" {
+			function = Eval(node.Function, libsEnv[node.Lib])
+		} else {
+			function = Eval(node.Function, env)
+		}
+
 		if isError(function) {
 			return function
 		}
@@ -250,11 +269,46 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 		value := arrayElements[pos]
 		return value
+	case *ast.WhileStatement:
+		condition := Eval(node.Condition, env)
+		if isError(condition) {
+			return condition
+		}
+
+		for condition != NULL && condition != FALSE {
+
+			result := Eval(&node.Block, env)
+			if result.Type() == object.RETURN_VALUE_OBJ || result.Type() == object.ERROR_OBJ {
+				return result
+			}
+
+			condition = Eval(node.Condition, env)
+			if isError(condition) {
+				return condition
+			}
+		}
+
+		return NULL
+	case *ast.ExternalReferenceExpression:
+
+		switch ref := node.Referece.(type) {
+		case *ast.CallExpression:
+			ref.Lib = node.Module
+
+			result := Eval(ref, env)
+
+			return result
+		case *ast.Identifier:
+			return Eval(ref, libsEnv[node.Module])
+		}
+
 	}
 	return nil
 }
 
 func evalProgram(statements []ast.Statement, env *object.Environment) object.Object {
+	libsEnv = make(map[string]*object.Environment)
+
 	var result object.Object
 
 	for _, s := range statements {
@@ -267,6 +321,18 @@ func evalProgram(statements []ast.Statement, env *object.Environment) object.Obj
 			return result
 		}
 	}
+
+	return result
+}
+
+func evalUseStatement(filename string) object.Object {
+	fileAst := parser.ParseFile(filename)
+
+	fileEnv := object.NewEnvironment()
+
+	result := Eval(fileAst, fileEnv)
+
+	libsEnv[filename] = fileEnv
 
 	return result
 }

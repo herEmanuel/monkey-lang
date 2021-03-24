@@ -14,15 +14,16 @@ type (
 )
 
 const (
-	_            int = iota
-	LOWEST           // 1
-	EQUALS           // ==
-	LESSGREATER      // < or >
-	SUM              // +
-	PRODUCT          // *
-	PREFIX           // -X or !X
-	ARRAY_ACCESS     // array[x]
-	CALL             // function(x)
+	_                  int = iota
+	LOWEST                 // 1
+	EQUALS                 // ==
+	LESSGREATER            // < or >
+	SUM                    // +
+	PRODUCT                // *
+	PREFIX                 // -X or !X
+	ARRAY_ACCESS           // array[x]
+	CALL                   // function(x)
+	EXTERNAL_REFERENCE     //x.y
 )
 
 var precedences = map[string]int{
@@ -36,6 +37,7 @@ var precedences = map[string]int{
 	token.MULTIPLY:     PRODUCT,
 	token.LSQBRACKET:   ARRAY_ACCESS,
 	token.LPAREN:       CALL,
+	token.DOT:          EXTERNAL_REFERENCE,
 }
 
 type Parser struct {
@@ -65,6 +67,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 
+	p.registerInfix(token.DOT, p.parseExternalReference)
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
 	p.registerInfix(token.MINUS, p.parseInfixExpression)
 	p.registerInfix(token.EQUAL, p.parseInfixExpression)
@@ -144,8 +147,12 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 func (p *Parser) parseStatement() ast.Statement {
 	switch p.currentToken.Type {
+	case token.USE:
+		return p.parseUseStatement()
 	case token.LET:
 		return p.parseLetStatement()
+	case token.WHILE:
+		return p.parseWhileStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
 	case token.IDENTIFIER:
@@ -162,6 +169,22 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	statement := &ast.ExpressionStatement{Token: p.currentToken}
 
 	statement.Expression = p.parseExpression(LOWEST)
+
+	if p.peekToken.Type == token.SEMICOLON {
+		p.nextToken()
+	}
+
+	return statement
+}
+
+func (p *Parser) parseUseStatement() ast.Statement {
+	statement := &ast.UseStatement{Token: p.currentToken}
+
+	if !p.expectToken(token.IDENTIFIER) {
+		return nil
+	}
+
+	statement.Filename = p.currentToken.Literal
 
 	if p.peekToken.Type == token.SEMICOLON {
 		p.nextToken()
@@ -190,6 +213,36 @@ func (p *Parser) parseLetStatement() ast.Statement {
 	if p.peekToken.Type == token.SEMICOLON {
 		p.nextToken()
 	}
+
+	return statement
+}
+
+//TODO: finish this (add support to while loops)
+func (p *Parser) parseWhileStatement() ast.Statement {
+	statement := &ast.WhileStatement{Token: p.currentToken}
+
+	if !p.expectToken(token.LPAREN) {
+		return nil
+	}
+
+	if p.peekToken.Type == token.RPAREN {
+		p.AddError("while loop must have a condition")
+		return nil
+	}
+
+	p.nextToken()
+
+	statement.Condition = p.parseExpression(LOWEST)
+
+	if !p.expectToken(token.RPAREN) {
+		return nil
+	}
+
+	if !p.expectToken(token.LBRACE) {
+		return nil
+	}
+
+	statement.Block = p.parseBlockStatement()
 
 	return statement
 }
@@ -404,6 +457,11 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	fl := &ast.FunctionLiteral{Token: p.currentToken}
 	fl.Parameters = []ast.Identifier{}
 
+	if p.peekToken.Type == token.IDENTIFIER {
+		fl.Name = ast.Identifier{Token: p.peekToken, Value: p.peekToken.Literal}
+		p.nextToken()
+	}
+
 	if !p.expectToken(token.LPAREN) {
 		return nil
 	}
@@ -490,4 +548,25 @@ func (p *Parser) parseArrayAccessExpression(left ast.Expression) ast.Expression 
 	}
 
 	return arrAccess
+}
+
+func (p *Parser) parseExternalReference(left ast.Expression) ast.Expression {
+	expression := &ast.ExternalReferenceExpression{Token: p.currentToken}
+
+	expression.Module = left.String()
+
+	if p.peekToken.Type != token.IDENTIFIER {
+		p.AddError(token.IDENTIFIER)
+		return nil
+	}
+
+	p.nextToken()
+
+	expression.Referece = p.parseExpression(LOWEST)
+
+	if p.peekToken.Type == token.SEMICOLON {
+		p.nextToken()
+	}
+
+	return expression
 }
